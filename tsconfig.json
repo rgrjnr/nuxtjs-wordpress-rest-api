@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "#app": ["./node_modules/nuxt/dist/app/index"],
+      "#app/*": ["./node_modules/nuxt/dist/app/*"],
+      "#imports": ["./node_modules/nuxt/dist/imports"],
+      "#imports/*": ["./node_modules/nuxt/dist/imports/*"],
+      "#build": ["./node_modules/nuxt/dist/core/runtime/nitro/build"],
+      "#build/*": ["./node_modules/nuxt/dist/core/runtime/nitro/build/*"],
+      "#nitro": ["./node_modules/nuxt/dist/core/runtime/nitro/index"],
+      "#nitro/*": ["./node_modules/nuxt/dist/core/runtime/nitro/*"]
+    }
+  },
+  "include": ["src/**/*", "playground/**/*"],
+  "exclude": ["node_modules", "dist", ".nuxt"]
+}
