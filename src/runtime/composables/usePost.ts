@@ -1,7 +1,7 @@
 import type { UsePostOptions, ModuleOptions } from '../../types'
 import { computed, readonly, type Ref, type ComputedRef, watchEffect, watch, nextTick } from 'vue'
 // @ts-ignore - Nuxt internal alias
-import { useRoute, useLazyAsyncData, useRuntimeConfig, useHead } from '#app'
+import { useRoute, useAsyncData, useRuntimeConfig, useHead } from '#app'
 import { useWpFetch } from './useWpFetch'
 import { useWpSeo } from './useWpSeo'
 
@@ -47,8 +47,8 @@ export const usePost = (options: UsePostOptions = {}) => {
     () => `wp:post:${postType.value}:${slug.value}:${JSON.stringify(options.query || {})}`
   )
 
-  // Fetch the post
-  const { data, pending, error, refresh } = useLazyAsyncData(
+  // Fetch the post using useAsyncData for SSR
+  const { data, pending, error, refresh } = useAsyncData(
     key.value,
     async () => {
       console.log('Fetching post with key:', key.value)
@@ -65,14 +65,15 @@ export const usePost = (options: UsePostOptions = {}) => {
       return result
     },
     {
-      server: true
+      server: true,
+      default: () => null
     }
   )
 
   // Computed property for the post with proper typing
   const post = computed(() => data.value)
 
-  // Auto-set SEO when post is loaded (only if SEO is enabled)
+  // Set SEO meta tags when post data is available
   watchEffect(async () => {
     console.log('watchEffect triggered:', { 
       isPending: pending.value, 
@@ -84,9 +85,6 @@ export const usePost = (options: UsePostOptions = {}) => {
       const currentPost = data.value
       console.log('Setting SEO meta for post (watchEffect):', currentPost.title?.rendered)
 
-      // Wait for next tick to ensure data is properly set
-      await nextTick()
-      
       try {
         // Use useWpSeo to set SEO meta tags
         const { setPostSeo } = useWpSeo()
@@ -117,93 +115,31 @@ export const usePost = (options: UsePostOptions = {}) => {
     }
   }, { immediate: true })
 
-  // Set initial SEO meta tags immediately for SSR (even before data loads)
-  if (seoEnabled.value) {
-    const initialTitle = slug.value ? `Loading: ${slug.value}` : 'Post'
-    const initialDescription = 'Loading post content...'
+  // Set default SEO meta tags only if no data is available and we have an error
+  if (seoEnabled.value && !data.value && error.value) {
+    const defaultTitle = slug.value ? `${slug.value.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}` : 'Blog Post'
+    const defaultDescription = 'Blog post from our website'
     
-    console.log('Setting initial SEO for SSR:', initialTitle)
+    console.log('Setting default SEO due to error:', defaultTitle)
     
     try {
-      // Set initial SEO meta tags for SSR
       useHead({
-        title: initialTitle,
+        title: defaultTitle,
         meta: [
-          { name: 'description', content: initialDescription },
-          { property: 'og:title', content: initialTitle },
-          { property: 'og:description', content: initialDescription },
+          { name: 'description', content: defaultDescription },
+          { property: 'og:title', content: defaultTitle },
+          { property: 'og:description', content: defaultDescription },
           { property: 'og:type', content: 'article' },
           { name: 'twitter:card', content: 'summary_large_image' },
-          { name: 'twitter:title', content: initialTitle },
-          { name: 'twitter:description', content: initialDescription }
+          { name: 'twitter:title', content: defaultTitle },
+          { name: 'twitter:description', content: defaultDescription }
         ]
       })
-      console.log('Initial SEO set successfully for SSR')
+      console.log('Default SEO set successfully')
     } catch (error) {
-      console.error('Error setting initial SEO for SSR:', error)
+      console.error('Error setting default SEO:', error)
     }
   }
-
-  // Immediate SEO check for SSR
-  if (data.value && !pending.value && seoEnabled.value) {
-    const currentPost = data.value
-    console.log('Setting SEO meta for post (immediate SSR):', currentPost.title?.rendered)
-
-    try {
-      // Use useWpSeo to set SEO meta tags
-      const { setPostSeo } = useWpSeo()
-      setPostSeo(currentPost)
-      console.log('SEO set successfully via useWpSeo (immediate SSR)')
-    } catch (error) {
-      console.error('Error setting SEO via useWpSeo (immediate SSR):', error)
-    }
-  }
-
-  // Additional check with setTimeout to ensure we catch the data
-  setTimeout(() => {
-    if (data.value && !pending.value && seoEnabled.value) {
-      const currentPost = data.value
-      console.log('Setting SEO meta for post (from setTimeout):', currentPost.title?.rendered)
-
-      try {
-        // Use useWpSeo to set SEO meta tags
-        const { setPostSeo } = useWpSeo()
-        setPostSeo(currentPost)
-        console.log('SEO set successfully via useWpSeo (setTimeout)')
-      } catch (error) {
-        console.error('Error setting SEO via useWpSeo (setTimeout):', error)
-      }
-    } else {
-      console.log('setTimeout check failed:', { 
-        hasData: !!data.value, 
-        pending: pending.value, 
-        seoEnabled: seoEnabled.value 
-      })
-    }
-  }, 100)
-
-  // Additional check with a longer timeout as backup
-  setTimeout(() => {
-    if (data.value && !pending.value && seoEnabled.value) {
-      const currentPost = data.value
-      console.log('Setting SEO meta for post (from long setTimeout):', currentPost.title?.rendered)
-
-      try {
-        // Use useWpSeo to set SEO meta tags
-        const { setPostSeo } = useWpSeo()
-        setPostSeo(currentPost)
-        console.log('SEO set successfully via useWpSeo (long setTimeout)')
-      } catch (error) {
-        console.error('Error setting SEO via useWpSeo (long setTimeout):', error)
-      }
-    } else {
-      console.log('Long setTimeout check failed:', { 
-        hasData: !!data.value, 
-        pending: pending.value, 
-        seoEnabled: seoEnabled.value 
-      })
-    }
-  }, 500)
 
   // Helper to check if post exists
   const exists = computed(() => !!post.value)
